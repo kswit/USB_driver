@@ -50,7 +50,7 @@ static int aveo_ctrl_out(struct gspca_dev *gspca_dev,
     if (ret < 0)
         pr_err("aveo: ctrl_out 0x%02x failed (%d)\n", req, ret);
 
-    msleep(10);
+    msleep(200);
     return ret;
 }
 
@@ -115,13 +115,13 @@ static int fw_already_loaded(struct gspca_dev *gspca_dev)
      int ok = 0;
      unsigned int pipe = 0;
      gspca_dev->usb_buf[0]='\0';
-     pipe = usb_sndctrlpipe(gspca_dev->dev, 0);
-     //ctrl_in(h, 0x08, 0, 0, buf, 12);
+     pipe = usb_rcvctrlpipe(gspca_dev->dev, 0);
+     //(h, 0x08, 0, 0, buf, 12);
      //   gspca_dev->dev
      // mutex_lock(&gspca_dev->usb_lock);
      ret = usb_control_msg(gspca_dev->dev, pipe,
 			      0x08,
-                              USB_TYPE_VENDOR |  USB_DIR_IN |USB_RECIP_ENDPOINT,
+                              USB_TYPE_VENDOR |  USB_DIR_IN |USB_RECIP_DEVICE,
 			      0, 0, gspca_dev->usb_buf, 12, 500); 
   ok = (strncmp((char *)gspca_dev->usb_buf, "Ver R003.001", 12) == 0);
 
@@ -176,6 +176,7 @@ static const struct v4l2_pix_format  aveo_mode[] = {
         .width        = FRAME_W,
         .height       = FRAME_H,
         .pixelformat  = V4L2_PIX_FMT_UYVY,
+        //.pixelformat  =V4L2_PIX_FMT_YUYV,
         .field        = V4L2_FIELD_NONE,
         .bytesperline = FRAME_W * 2,
         .sizeimage    = FRAME_SZ,
@@ -268,7 +269,27 @@ static int sd_config(struct gspca_dev *gspca_dev,
    ========================= */
 static int sd_start(struct gspca_dev *gspca_dev)
 {   
+      int ret;
+
+     ret = usb_set_interface(gspca_dev->dev, 0, 5);
+      if (ret < 0) {
+        pr_err("aveo: set_interface failed %d\n", ret);
+        return ret;
+    }  
     
+    /* 2. ustaw rozdzielczość */
+    ret = aveo_ctrl_out(gspca_dev, 0x32, 0x0500, 0x1400);
+    if (ret < 0)
+        return ret;
+
+    msleep(20);
+    
+    /* 3. start stream */
+    ret = aveo_ctrl_out(gspca_dev, 0x22, 1, 2);
+    if (ret < 0)
+        return ret;
+    msleep(200);
+
     BUG_ON(!gspca_dev);
     struct sd *sd = (struct sd *)gspca_dev;
 
@@ -290,6 +311,16 @@ static void sd_stop(struct gspca_dev *gspca_dev)
 
     kfree(sd->framebuf);
     sd->framebuf = NULL;
+
+   
+    aveo_ctrl_out(gspca_dev, 0x22, 0, 0);  // stop capture
+    msleep(50);
+
+    usb_set_interface(gspca_dev->dev, 0, 0); // wyłącz streaming
+
+
+
+
 }
 
 
@@ -299,84 +330,70 @@ static int sd_init(struct gspca_dev *gspca_dev)
     return 0;
 }
 
-static void sd_stopN(struct gspca_dev *gspca_dev)
-{
-   
-
-    struct sd *sd = (struct sd *)gspca_dev;
-
-    pr_info("aveo: stop\n");
-
-    kfree(sd->framebuf);
-    sd->framebuf = NULL;
-
-
-
-}
-
-//static void sd_pkt_scan(struct gspca_dev *gspca_dev,
-//                        u8 *data, int len)
+//static void sd_stopN(struct gspca_dev *gspca_dev)
 //{
-//    /* NA RAZIE NIC */
+//  
+
+//    struct sd *sd = (struct sd *)gspca_dev;
+
+//    pr_info("aveo: stop\n");
+
+//    kfree(sd->framebuf);
+//    sd->framebuf = NULL;
+
+
+
 //}
-
-
-
-
-
-
-
-
 
 
 
 /* =========================
    PARSER
    ========================= */
+
+
+
+
+
+
 static void sd_pkt_scan(struct gspca_dev *gspca_dev,
                         u8 *data, int len)
 {
     struct sd *sd = (struct sd *)gspca_dev;
-    int pos;
 
     while (len > 0) {
 
-        pos = find_sync(data, len);
+        /* jeśli nie jesteśmy zsynchronizowani */
+        if (sd->fpos == 0) {
+            int pos = find_sync(data, len);
+            if (pos < 0)
+                return;
 
-        if (pos < 0) {
-            int copy = min(len, FRAME_SZ - sd->fpos);
+            /* zaczynamy nową ramkę */
+            data += pos + 4;
+            len  -= pos + 4;
 
-            memcpy(sd->framebuf + sd->fpos, data, copy);
-            sd->fpos += copy;
-
-            gspca_frame_add(gspca_dev, INTER_PACKET, data, copy);
-
-            if (sd->fpos >= FRAME_SZ) {
-                gspca_frame_add(gspca_dev, LAST_PACKET, NULL, 0);
-                sd->fpos = 0;
-            }
-            return;
+            gspca_frame_add(gspca_dev, FIRST_PACKET, NULL, 0);
         }
 
-        if (pos > 0) {
-            memcpy(sd->framebuf + sd->fpos, data, pos);
-            sd->fpos += pos;
+        int chunk = min(len, FRAME_SZ - sd->fpos);
 
-            gspca_frame_add(gspca_dev, INTER_PACKET, data, pos);
+        gspca_frame_add(gspca_dev, INTER_PACKET, data, chunk);
+
+        sd->fpos += chunk;
+        data += chunk;
+        len  -= chunk;
+
+        if (sd->fpos >= FRAME_SZ) {
+            gspca_frame_add(gspca_dev, LAST_PACKET, NULL, 0);
+            sd->fpos = 0;
         }
-
-        /* nowa ramka */
-        gspca_frame_add(gspca_dev, LAST_PACKET, NULL, 0);
-        gspca_frame_add(gspca_dev, FIRST_PACKET, NULL, 0);
-
-        sd->fpos = 0;
-
-        data += pos + 4;
-        len  -= pos + 4;
     }
 }
 
-/* =========================
+
+
+ /*=========================
    DESC
    ========================= */
 static const struct sd_desc sd_desc = {
