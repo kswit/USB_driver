@@ -318,7 +318,7 @@ static void sd_stop(struct gspca_dev *gspca_dev)
     aveo_ctrl_out(gspca_dev, 0x22, 0, 0);  // stop capture
     msleep(50);
 
-    usb_set_interface(gspca_dev->dev, 0, 0); // wyłącz streaming
+    //usb_set_interface(gspca_dev->dev, 0, 0); // wyłącz streaming
 
     msleep(100);
 
