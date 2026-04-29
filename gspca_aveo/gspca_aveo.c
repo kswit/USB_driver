@@ -28,6 +28,7 @@ struct sd {
 
     u8 *framebuf;
     int fpos;
+    int stopping;
 };
 
 /* =========================
@@ -290,7 +291,7 @@ static int sd_start(struct gspca_dev *gspca_dev)
         return ret;
     msleep(200);
 
-    BUG_ON(!gspca_dev);
+    //BUG_ON(!gspca_dev);
     struct sd *sd = (struct sd *)gspca_dev;
 
     pr_info("aveo: start\n");
@@ -308,6 +309,7 @@ static void sd_stop(struct gspca_dev *gspca_dev)
     struct sd *sd = (struct sd *)gspca_dev;
 
     pr_info("aveo: stop\n");
+    sd->stopping = 1;
 
     kfree(sd->framebuf);
     sd->framebuf = NULL;
@@ -318,7 +320,7 @@ static void sd_stop(struct gspca_dev *gspca_dev)
 
     usb_set_interface(gspca_dev->dev, 0, 0); // wyłącz streaming
 
-
+    msleep(100);
 
 
 }
@@ -360,6 +362,9 @@ static void sd_pkt_scan(struct gspca_dev *gspca_dev,
                         u8 *data, int len)
 {
     struct sd *sd = (struct sd *)gspca_dev;
+
+    if (sd->stopping)
+    return;
 
     while (len > 0) {
 
