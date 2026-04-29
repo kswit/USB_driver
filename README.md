@@ -105,3 +105,15 @@ Przez pierwsze ~30 sekund wartości Y (luma) są niskie (Y≈17 = prawie czarne)
 konwergencji algorytmu AE. Po stabilizacji Y osiąga wartości odpowiednie do oświetlenia sceny.
 Podświetlenie LED mikroskopu jest sterowane sprzętowo (przełącznik fizyczny) i nie jest
 widoczne z poziomu USB.
+
+### Usage
+
+---
+sudo modprobe videodev
+sudo modprobe videobuf2-v4l2
+sudo modprobe videobuf2-vmalloc
+sudo modprobe videobuf2-common
+sudo modprobe gspca_main
+
+sudo modprobe ./gspca_aveo.ko
+---
