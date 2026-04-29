@@ -108,7 +108,7 @@ widoczne z poziomu USB.
 
 ### Usage
 
----
+```
 sudo modprobe videodev
 sudo modprobe videobuf2-v4l2
 sudo modprobe videobuf2-vmalloc
@@ -116,4 +116,5 @@ sudo modprobe videobuf2-common
 sudo modprobe gspca_main
 
 sudo modprobe ./gspca_aveo.ko
+```
 ---
