@@ -311,8 +311,8 @@ static void sd_stop(struct gspca_dev *gspca_dev)
     pr_info("aveo: stop\n");
     sd->stopping = 1;
 
-    kfree(sd->framebuf);
-    sd->framebuf = NULL;
+    //kfree(sd->framebuf);
+    //sd->framebuf = NULL;
 
    
     aveo_ctrl_out(gspca_dev, 0x22, 0, 0);  // stop capture
