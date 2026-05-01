@@ -28,7 +28,7 @@ struct sd {
 
     u8 *framebuf;
     int fpos;
-    int stopping;
+    atomic_t stopping;
 };
 
 /* =========================
@@ -362,6 +362,9 @@ static void sd_pkt_scan(struct gspca_dev *gspca_dev,
                         u8 *data, int len)
 {
     struct sd *sd = (struct sd *)gspca_dev;
+
+    if (!gspca_dev)
+    return;
 
     if (sd->stopping)
     return;
