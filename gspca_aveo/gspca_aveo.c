@@ -315,7 +315,7 @@ static void sd_stop(struct gspca_dev *gspca_dev)
 {
     struct sd *sd = (struct sd *)gspca_dev;
 
-    module_put(THIS_MODULE);
+    
 
     pr_info("aveo: stop\n");
     atomic_set(&sd->stopping, 1);
@@ -331,7 +331,7 @@ static void sd_stop(struct gspca_dev *gspca_dev)
 
     msleep(100);
 
-
+module_put(THIS_MODULE);
 }
 
 
