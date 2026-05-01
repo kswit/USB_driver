@@ -78,7 +78,7 @@ static int aveo_sensor_init(struct gspca_dev *gspca_dev)
 
     VCMD(0x6c, 0x0032, 0x0002);
 
-    VCMD(0x5f, 0x0001, 0x0000);   /* AE ON */
+    VCMD(0x5f, 0x0000, 0x0000);   /* AE ON */
     msleep(200);
 
     VCMD(0x69, 0x0032, 0x0000);
@@ -259,7 +259,7 @@ static int sd_config(struct gspca_dev *gspca_dev,
   
     cam->cam_mode = aveo_mode;
     cam->nmodes   = ARRAY_SIZE(aveo_mode);
-    cam->npkt     = 32;
+    cam->npkt     = 64;
     
 
     return 0;
