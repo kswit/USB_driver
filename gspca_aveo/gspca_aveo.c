@@ -271,6 +271,8 @@ static int sd_config(struct gspca_dev *gspca_dev,
 static int sd_start(struct gspca_dev *gspca_dev)
 {   
       int ret;
+       struct sd *sd = (struct sd *)gspca_dev;
+
        atomic_set(&sd->stopping, 0);
      ret = usb_set_interface(gspca_dev->dev, 0, 5);
       if (ret < 0) {
