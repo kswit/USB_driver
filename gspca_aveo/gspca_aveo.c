@@ -272,9 +272,14 @@ static int sd_start(struct gspca_dev *gspca_dev)
 {   
       int ret;
        struct sd *sd = (struct sd *)gspca_dev;
-
+       
        atomic_set(&sd->stopping, 0);
-     ret = usb_set_interface(gspca_dev->dev, 0, 5);
+       
+       if (!try_module_get(THIS_MODULE))
+    return -ENODEV;
+       
+       
+       ret = usb_set_interface(gspca_dev->dev, 0, 5);
       if (ret < 0) {
         pr_err("aveo: set_interface failed %d\n", ret);
         return ret;
@@ -309,6 +314,8 @@ static int sd_start(struct gspca_dev *gspca_dev)
 static void sd_stop(struct gspca_dev *gspca_dev)
 {
     struct sd *sd = (struct sd *)gspca_dev;
+
+    module_put(THIS_MODULE);
 
     pr_info("aveo: stop\n");
     atomic_set(&sd->stopping, 1);
