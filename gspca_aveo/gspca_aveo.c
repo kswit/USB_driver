@@ -294,7 +294,7 @@ static int sd_start(struct gspca_dev *gspca_dev)
     msleep(200);
 
     //BUG_ON(!gspca_dev);
-    struct sd *sd = (struct sd *)gspca_dev;
+   // struct sd *sd = (struct sd *)gspca_dev;
 
     pr_info("aveo: start\n");
     
