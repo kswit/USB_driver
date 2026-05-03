@@ -2,14 +2,22 @@ makedepends=('git')
 source=("git+https://github.com/kswit/USB_driver.git")
 sha256sums=('SKIP')
 
+pkgname=gspca_aveo-dkms
+pkgver=1.0
+pkgrel=1
+arch=('x86_64')
+depends=('dkms')
+
+
+
 package() {
     cd "$srcdir/USB_driver/gspca_aveo"
 
     install -dm755 "$pkgdir/usr/src/gspca_aveo-${pkgver}"
 
     # kopiuj tylko potrzebne pliki
-    install -m644 gspca_aveo.c "$pkgdir/usr/src/gspca_aveo-${pkgver}/"
-    install -m644 Makefile "$pkgdir/usr/src/gspca_aveo-${pkgver}/"
+     install -m644 *.c *.h Makefile dkms.conf \
+        "$pkgdir/usr/src/gspca_aveo-${pkgver}/"
 
     # dkms.conf
     cat > "$pkgdir/usr/src/gspca_aveo-${pkgver}/dkms.conf" <<EOF
