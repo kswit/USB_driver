@@ -1,0 +1,35 @@
+name: Build Debian Package
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-deb:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            build-essential \
+            debhelper \
+            dkms \
+            dh-dkms \
+            devscripts
+
+      - name: Build package
+        run: |
+          dpkg-buildpackage -us -uc
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gspca-aveo-deb
+          path: ../*.deb
