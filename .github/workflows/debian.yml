@@ -27,9 +27,10 @@ jobs:
       - name: Build package
         run: |
           dpkg-buildpackage -us -uc
+          cp ../*.deb .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: gspca-aveo-deb
-          path: ../*.deb
+          path: '*.deb'
