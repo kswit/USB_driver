@@ -29,8 +29,13 @@ jobs:
           dpkg-buildpackage -us -uc
           cp ../*.deb .
 
+      - name: Copy packages
+        run: |
+          mkdir artifacts
+          cp ../*.deb artifacts/
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: gspca-aveo-deb
-          path: '*.deb'
+        name: gspca-aveo-deb
+        path: artifacts/*.deb
