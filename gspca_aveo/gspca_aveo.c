@@ -461,3 +461,4 @@ module_usb_driver(sd_driver);
 MODULE_AUTHOR("aveo reverse");
 MODULE_DESCRIPTION("Aveo USB microscope driver");
 MODULE_LICENSE("GPL");
+MODULE_SOFTDEP("pre: gspca_main videodev");
