@@ -1,0 +1,13 @@
+Source: gspca-aveo
+Section: kernel
+Priority: optional
+Maintainer: Kswit <bgueas@gmail.com>
+Build-Depends: debhelper-compat (= 13), dkms
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+
+Package: gspca-aveo-dkms
+Architecture: all
+Depends: dkms
+Description: AVEO USB microscope driver
+ DKMS driver for AVEO USB microscope devices.

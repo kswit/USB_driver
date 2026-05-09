@@ -1,0 +1,8 @@
+PACKAGE_NAME="gspca-aveo"
+PACKAGE_VERSION="#MODULE_VERSION#"
+
+BUILT_MODULE_NAME[0]="gspca_aveo"
+
+DEST_MODULE_LOCATION[0]="/updates/dkms"
+
+AUTOINSTALL="yes"
