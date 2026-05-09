@@ -2,3 +2,6 @@
 
 %:
 	dh $@ --with dkms
+
+override_dh_dkms:
+	dh_dkms -V 1.0
