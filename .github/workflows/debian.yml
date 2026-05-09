@@ -37,10 +37,5 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-<<<<<<< HEAD
         name: gspca-aveo-deb
         path: artifacts/*.deb
-=======
-          name: gspca-aveo-deb
-          path: '*.deb'
->>>>>>> 3811dd84c79242e586cc74e481a912c3e6006d3c
