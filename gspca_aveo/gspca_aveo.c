@@ -6,8 +6,8 @@
 #include <linux/usb.h>
 #include <linux/slab.h>
 
-#include <media/gspca.h>
-//#include "gspca.h"
+//#include <media/gspca.h>
+#include "gspca.h"
 
 /* =========================
    PARAMETRY
