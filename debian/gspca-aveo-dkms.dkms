@@ -1,4 +1,4 @@
-PACKAGE_NAME="gspca-aveo"
+PACKAGE_NAME="gspca_aveo"
 PACKAGE_VERSION="#MODULE_VERSION#"
 
 BUILT_MODULE_NAME[0]="gspca_aveo"
