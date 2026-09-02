@@ -12,8 +12,8 @@
 /* =========================
    PARAMETRY
    ========================= */
-#define FRAME_W   1280
-#define FRAME_H   1024
+#define FRAME_W   640
+#define FRAME_H   480
 #define FRAME_SZ  (FRAME_W * FRAME_H * 2)
 
 /* =========================
@@ -287,7 +287,7 @@ static int sd_start(struct gspca_dev *gspca_dev)
     }  
     
     /* 2. ustaw rozdzielczość */
-    ret = aveo_ctrl_out(gspca_dev, 0x32, 0x0500, 0x1400);
+    ret = aveo_ctrl_out(gspca_dev, 0x32, 0x0280, 0x11E0);
     if (ret < 0)
         return ret;
 

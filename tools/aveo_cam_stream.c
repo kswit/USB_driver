@@ -167,12 +167,14 @@ static void sensor_config(libusb_device_handle *h)
 }
 
 /* ================================================================
- * ZAPIS RAMEK DO BMP  (format YUYV 1280×1024 z bRequest=0x32)
+ * ZAPIS RAMEK DO BMP  (format YUYV 640×480 z bRequest=0x32)
+ * SAVE FRAMES TO BMP  (UYVY 640×480 via bRequest=0x32)
  * ================================================================ */
 
-/* Rozdzielczość z parametrów 0x32: wValue=1280 (szer.), wIndex=(1<<12)|1024 */
-#define FRAME_W      1280
-#define FRAME_H      1024
+/* Rozdzielczość z parametrów 0x32: wValue=640 (szer.), wIndex=(1<<12)|480 */
+/* Resolution via 0x32 params: wValue=640 (width), wIndex=(1<<12)|480 */
+#define FRAME_W      640
+#define FRAME_H      480
 #define FRAME_SZ     (FRAME_W * FRAME_H * 2)   /* bajty na ramkę YUYV */
 #define MAX_FRAMES   4
 #define FRAME_BUF_SZ (FRAME_SZ + 65536)        /* mały margines */
@@ -407,7 +409,7 @@ static int start_streaming(libusb_device_handle *h, libusb_device *dev)
     printf("  alt=%d aktywny\n", alt);
 
     printf("[STREAM] Rozdzielczość (0x32)...\n");
-    ctrl_out(h, 0x32, 0x0500, 0x1400, NULL, 0);
+    ctrl_out(h, 0x32, 0x0280, 0x11E0, NULL, 0);
     usleep(20000);
 
     printf("[STREAM] START capture (0x22)...\n");

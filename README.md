@@ -118,3 +118,50 @@ sudo modprobe gspca_main
 sudo modprobe ./gspca_aveo.ko
 ```
 ---
+
+## Poprawki / Fixes
+
+### 1. Rozdzielczość 640×480 (naprawa braku obrazu) — 640x480 resolution (Grey-frame fix)
+
+Kamera w trybie isochronous (alt 5) wysyła maks. ~24.5 Mb/s. Moduł żądał
+rozdzielczości 1280×1024, która przy 30 fps wymaga ~78.6 Mb/s, więc `gspca`
+cicho przełączał się na alt 0 (zerowa przepustowość) i nie docierał żadne
+bajty → **0 klatek**. Poprawna rozdzielczość to **640×480** (~18.4 Mb/s,
+mieści się w alt 5).
+The isochronous endpoint (alt 5) tops out at ~24.5 Mb/s. The module requested
+1280×1024, which at 30 fps needs ~78.6 Mb/s, so `gspca` silently fell back to
+alt 0 (zero bandwidth) and delivered **0 frames**. The correct resolution is
+**640×480** (~18.4 Mb/s, fits alt 5).
+
+**gspca_aveo/gspca_aveo.c:** `FRAME_W/H` 1280×1024 → 640×480; `ctrl_out(0x32,...)`
+z `0x0500/0x1400` → `0x0280/0x11E0`. **tools/aveo_cam_stream.c:** ta sama zmiana.
+The same change is in `tools/aveo_cam_stream.c`.
+
+### 2. DKMS (auto-przebudowa po aktualizacji jądra) — DKMS (auto-rebuild on kernel update)
+
+Poprawiony `Makefile` używa `KERNELRELEASE` z DKMS (docelowe jądro podczas
+aktualizacji), a nie `uname -r` (bieżące stare jądro); usunięto `LLVM=1`
+(budowanie gcc). `dkms.conf` buduje przez własny Makefile modułu. Dzięki temu
+`dkms build/install` działa, a moduł jest automatycznie przebudowywany po każdej
+aktualizacji jądra.
+Fixed `Makefile` uses the DKMS `KERNELRELEASE` (the target kernel during an
+update), not `uname -r` (the running, old kernel); dropped `LLVM=1` (build with
+gcc). `dkms.conf` builds via the module's own Makefile. `dkms build/install` now
+works and the module is automatically rebuilt on every kernel update.
+
+```
+sudo mkdir -p /usr/src/gspca_aveo-1.0
+sudo cp -r gspca_aveo/* /usr/src/gspca_aveo-1.0/
+sudo dkms add -m gspca_aveo -v 1.0
+sudo dkms build -m gspca_aveo -v 1.0
+sudo dkms install -m gspca_aveo -v 1.0
+```
+
+### 3. Uwaga / Note
+
+Na kontrolerach USB AMD (xhci) kamera może zniknąć z magistrali
+(`device not accepting address, error -71`). Należy fizycznie odłączyć i
+podłączyć kamerę — **nie** resetować jej programowo (`modprobe -r`).
+On AMD USB (xhci) controllers the camera can vanish from the bus
+(`device not accepting address, error -71`). Physically unplug and replug the
+camera — do **not** reset it in software (`modprobe -r`).
