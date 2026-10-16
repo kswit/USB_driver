@@ -12,14 +12,79 @@
 /* =========================
    PARAMETRY
    ========================= */
-#define FRAME_W   640
-#define FRAME_H   480
+#define FRAME_W   1280
+#define FRAME_H   1024
 #define FRAME_SZ  (FRAME_W * FRAME_H * 2)
 
 /* =========================
    Firmware
    ========================= */
 #include "aveo_firmware.h"
+
+/*============================
+
+Read Capability
+===============================*/
+static int aveo_read_capability(struct gspca_dev *gspca_dev)
+{
+    u8 *capability;
+    int ret;
+
+    capability = kmalloc(8, GFP_KERNEL);
+    if (!capability)
+        return -ENOMEM;
+
+     pr_info("aveo: GET_CAPABILITY: type=0x%02x req=0x01 "
+        "value=0 index=0 len=8\n",
+        USB_DIR_IN | USB_TYPE_VENDOR | USB_RECIP_INTERFACE);
+
+
+
+    ret = usb_control_msg(
+        gspca_dev->dev,
+        usb_rcvctrlpipe(gspca_dev->dev, 0),
+        0x01,
+        USB_DIR_IN | USB_TYPE_VENDOR | USB_RECIP_INTERFACE,
+        0,
+        0,
+        capability,
+        8,
+        2000
+    );
+
+    pr_info("aveo: GET_CAPABILITY result=%d\n", ret);
+
+
+
+    if (ret < 0) {
+        dev_err(&gspca_dev->dev->dev,
+                "aveo: read capability failed: %d\n", ret);
+
+        goto out;
+    }
+
+    if (ret != 8) {
+        dev_err(&gspca_dev->dev->dev,
+                "aveo: short capability response: %d/8 bytes\n",
+                ret);
+        ret = 0; /* diagnostycznie: kontynuuj inicjalizację */
+        goto out;
+    }
+
+    dev_info(&gspca_dev->dev->dev,
+             "aveo: capability: %*ph\n", 8, capability);
+
+out:
+    kfree(capability);
+    return ret < 0 ? ret : 0;
+}
+
+
+
+
+
+
+
 
 /* =========================
    Struktura prywatna
@@ -41,13 +106,17 @@ static int aveo_ctrl_out(struct gspca_dev *gspca_dev,
 {
     int ret;
 
-    ret = usb_control_msg(gspca_dev->dev,
+     dev_info(&gspca_dev->dev->dev,
+             "aveo: CTRL OUT req=0x%02x val=0x%04x idx=0x%04x len=0\n",
+             req, val, idx);
+
+     ret = usb_control_msg(gspca_dev->dev,
             usb_sndctrlpipe(gspca_dev->dev, 0),
             req,
-            USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
+            USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_INTERFACE,
             val, idx,
             NULL, 0,
-            1000);
+            2000);
 
     if (ret < 0)
         pr_err("aveo: ctrl_out 0x%02x failed (%d)\n", req, ret);
@@ -109,30 +178,70 @@ static int aveo_sensor_init(struct gspca_dev *gspca_dev)
 
 
 /* =========================
+ check firmware
+   ========================= */
+
+static int aveo_read_firmware_version(struct gspca_dev *gspca_dev)
+{
+    int ret;
+
+    memset(gspca_dev->usb_buf, 0, 12);
+
+    ret = usb_control_msg(gspca_dev->dev,
+            usb_rcvctrlpipe(gspca_dev->dev, 0),
+            0x08,
+            USB_DIR_IN | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
+            0, 0,
+            gspca_dev->usb_buf, 12,                          /* bufor DMA-safe, nie stos */
+            500);
+    if (ret != 12) {
+        pr_err("aveo: firmware version read failed: %d\n", ret);
+        return ret < 0 ? ret : -EIO;
+    }
+
+    return strncmp((char *)gspca_dev->usb_buf, "Ver R003.001", 12) == 0 ? 0 : -ENODEV;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* =========================
    check firmware
    ========================= */
 static int fw_already_loaded(struct gspca_dev *gspca_dev)
-{    
-     int ret;
-     int ok = 0;
-     unsigned int pipe = 0;
-     gspca_dev->usb_buf[0]='\0';
-     pipe = usb_rcvctrlpipe(gspca_dev->dev, 0);
-     //(h, 0x08, 0, 0, buf, 12);
-     //   gspca_dev->dev
-     // mutex_lock(&gspca_dev->usb_lock);
-     ret = usb_control_msg(gspca_dev->dev, pipe,
-			      0x08,
-                              USB_TYPE_VENDOR |  USB_DIR_IN |USB_RECIP_DEVICE,
-			      0, 0, gspca_dev->usb_buf, 12, 500); 
-  ok = (strncmp((char *)gspca_dev->usb_buf, "Ver R003.001", 12) == 0);
+{
+    int ret;
 
-  
-  return ok;
+    /* usb_buf to bufor gspca zaalokowany przez kmalloc (bezpieczny dla DMA) */
+    memset(gspca_dev->usb_buf, 0, 12);
 
+    ret = usb_control_msg(gspca_dev->dev,
+            usb_rcvctrlpipe(gspca_dev->dev, 0),
+            0x08,                                            /* odczyt wersji */
+            USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_DIR_IN,
+            0, 0,
+            gspca_dev->usb_buf, 12,
+            500);
 
+    /* Dopiero gdy odczyt się powiódł i zwrócił pełne 12 B, porównujemy wersję.
+       Bez tej kontroli błędny transfer dawałby fałszywy wynik. */
+    if (ret != 12)
+        return 0;   /* brak potwierdzenia -> wymuś upload firmware */
 
+    return strncmp((char *)gspca_dev->usb_buf, "Ver R003.001", 12) == 0;
 }
+
+
+
 /* =========================
    Start MCU i Sensor
    ========================= */
@@ -144,7 +253,7 @@ static int aveo_start_mcu(struct gspca_dev *gspca_dev)
     ret = usb_control_msg(gspca_dev->dev,
             usb_sndctrlpipe(gspca_dev->dev, 0),
             5,                      /* bRequest */
-            USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
+            USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_INTERFACE,
             0,                      /* wValue */
             1,                      /* wIndex */
             NULL,
@@ -152,14 +261,18 @@ static int aveo_start_mcu(struct gspca_dev *gspca_dev)
             1000);
 
     if (ret < 0) {
-        pr_err("aveo: MCU start failed\n");
-        return ret;
-    }
+    pr_err("aveo: MCU start failed: ret=%d (%pe)\n",
+           ret, ERR_PTR(ret));
+    return ret;
+}
 
-    msleep(500);   /* VERY IMPORTANT */
-
+    pr_info("aveo: MCU start control transfer OK, ret=%d\n", ret);
+    msleep(500);
     pr_info("aveo: MCU started\n");
     return 0;
+
+
+
 }
 
 
@@ -206,31 +319,48 @@ static int find_sync(const u8 *buf, int len)
 /* =========================
    Firmware upload
    ========================= */
+
 static int aveo_upload_firmware(struct gspca_dev *gspca_dev)
 {
     struct usb_device *dev = gspca_dev->dev;
+    u8 *buf;
     int i, ret;
 
+    /* Bufor transferu USB musi być bezpieczny dla DMA (kmalloc).
+       Nie wolno podawać wskaźnika do statycznej tablicy modułu. */
+    buf = kmalloc(32, GFP_KERNEL);
+    if (!buf)
+        return -ENOMEM;
+
     for (i = 0; i < 154; i++) {
+        memcpy(buf, &aveo_firmware[i], 32);
+
         ret = usb_control_msg(dev,
             usb_sndctrlpipe(dev, 0),
-            4,
-            USB_TYPE_VENDOR | USB_DIR_OUT,
-            0,
-            i,
-            (u8 *)&aveo_firmware[i * 32],
-            32,
+            4,                                               /* bRequest */
+            USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_DIR_OUT,
+            0,                                               /* wValue */
+            i,                                               /* wIndex = numer fragmentu */
+            buf, 32,
             500);
 
         if (ret < 0) {
-            pr_err("aveo: firmware chunk %d failed\n", i);
+            pr_err("aveo: firmware chunk %d failed (%d)\n", i, ret);
+            kfree(buf);
             return ret;
+        }
+        if (ret != 32) {                                     /* kontrola krótkiego transferu */
+            pr_err("aveo: firmware chunk %d short (%d/32)\n", i, ret);
+            kfree(buf);
+            return -EIO;
         }
     }
 
-    pr_info("aveo: firmware uploaded\n");
+    kfree(buf);
+    pr_info("aveo: firmware uploaded (%d B)\n", 154 * 32);
     return 0;
 }
+
 
 /* =========================
    CONFIG
@@ -240,10 +370,17 @@ static int sd_config(struct gspca_dev *gspca_dev,
 {
     int ret;
     struct cam *cam = &gspca_dev->cam;
-    
+
     pr_info("aveo: config\n");
 
-    if (!fw_already_loaded(gspca_dev))
+
+
+    ret = aveo_read_capability(gspca_dev);
+    if (ret < 0)
+        return ret;
+
+
+    if (fw_already_loaded(gspca_dev))
     {
         ret = aveo_upload_firmware(gspca_dev);
         if (ret < 0)
@@ -252,16 +389,24 @@ static int sd_config(struct gspca_dev *gspca_dev,
     ret = aveo_start_mcu(gspca_dev);
     if (ret < 0)
     return ret;
-     
+
+    msleep(500);
+
+    /* 3. Odczytaj capability po uruchomieniu MCU */
+
+    ret = aveo_read_firmware_version(gspca_dev);
+    if (ret < 0)
+    return ret;
+
     ret = aveo_sensor_init(gspca_dev);
     if (ret < 0)
     return ret;
 
-  
+
     cam->cam_mode = aveo_mode;
     cam->nmodes   = ARRAY_SIZE(aveo_mode);
     cam->npkt     = 64;
-    
+
 
     return 0;
 }
@@ -270,29 +415,29 @@ static int sd_config(struct gspca_dev *gspca_dev,
    START / STOP
    ========================= */
 static int sd_start(struct gspca_dev *gspca_dev)
-{   
+{
       int ret;
        struct sd *sd = (struct sd *)gspca_dev;
-       
+
        atomic_set(&sd->stopping, 0);
-       
+
        if (!try_module_get(THIS_MODULE))
     return -ENODEV;
-       
-       
+
+
        ret = usb_set_interface(gspca_dev->dev, 0, 5);
       if (ret < 0) {
         pr_err("aveo: set_interface failed %d\n", ret);
         return ret;
-    }  
-    
+    }
+
     /* 2. ustaw rozdzielczość */
-    ret = aveo_ctrl_out(gspca_dev, 0x32, 0x0280, 0x11E0);
+    ret = aveo_ctrl_out(gspca_dev, 0x32, 0x0500, 0x1400);
     if (ret < 0)
         return ret;
 
     msleep(20);
-    
+
     /* 3. start stream */
     ret = aveo_ctrl_out(gspca_dev, 0x22, 1, 2);
     if (ret < 0)
@@ -303,7 +448,7 @@ static int sd_start(struct gspca_dev *gspca_dev)
    // struct sd *sd = (struct sd *)gspca_dev;
 
     pr_info("aveo: start\n");
-    
+
     sd->framebuf = kmalloc(FRAME_SZ, GFP_KERNEL);
     if (!sd->framebuf)
         return -ENOMEM;
@@ -316,7 +461,7 @@ static void sd_stop(struct gspca_dev *gspca_dev)
 {
     struct sd *sd = (struct sd *)gspca_dev;
 
-    
+
 
     pr_info("aveo: stop\n");
     atomic_set(&sd->stopping, 1);
@@ -324,7 +469,7 @@ static void sd_stop(struct gspca_dev *gspca_dev)
     //kfree(sd->framebuf);
     //sd->framebuf = NULL;
 
-   
+
     aveo_ctrl_out(gspca_dev, 0x22, 0, 0);  // stop capture
     msleep(50);
 
@@ -344,7 +489,7 @@ static int sd_init(struct gspca_dev *gspca_dev)
 
 //static void sd_stopN(struct gspca_dev *gspca_dev)
 //{
-//  
+//
 
 //    struct sd *sd = (struct sd *)gspca_dev;
 
