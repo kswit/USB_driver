@@ -1,4 +1,4 @@
-# USB_driver
+# USB_driver - for educational purposes only
 AVEO Cheetah3 USB2.0 Device
 
 ![Microskop](TF301_Blue.jpg)
